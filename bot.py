@@ -102,6 +102,7 @@ def load_or_create_config() -> dict:
 # ==============================
 
 BASE_URL = "https://ilinkai.weixin.qq.com"
+COMMANDS_MSG = "可用指令：\n/time - 查询当前连接剩余时间"
 
 
 def make_headers(token=None):
@@ -347,6 +348,7 @@ async def main():
                 bot_token = status["bot_token"]
                 bot_base_url = status.get("baseurl", "")
                 print(f"登录成功！baseurl={bot_base_url}")
+                print(f"{'='*40}\n{COMMANDS_MSG}\n{'='*40}")
                 break
             await asyncio.sleep(1)
 
@@ -355,6 +357,7 @@ async def main():
         bot_base_url_ref = [bot_base_url]
         last_contact = {"from_id": None, "context_token": None}
         typing_ticket_cache = {}
+        welcomed_users = set()
         reconnect_asked = asyncio.Event()
         warning_active = [False]
         reconnect_in_progress = [False]
@@ -403,6 +406,23 @@ async def main():
                         await send_msg_safe(session, from_id, context_token,
                                             "好的，稍后再提醒您",
                                             bot_token_ref, bot_base_url_ref)
+                    continue
+
+                # 首次交互：发送指令列表
+                if from_id not in welcomed_users:
+                    welcomed_users.add(from_id)
+                    await send_msg_safe(session, from_id, context_token,
+                                        COMMANDS_MSG, bot_token_ref, bot_base_url_ref)
+                    continue
+
+                # /time 指令
+                if text.strip() == "/time":
+                    _rem = max(0, login_time_ref[0] + RECONNECT_CONFIG["session_duration"] - time.time())
+                    _h, _m, _s = int(_rem // 3600), int((_rem % 3600) // 60), int(_rem % 60)
+                    _ts = f"{_h} 小时 {_m} 分钟" if _h > 0 else f"{_m} 分钟 {_s} 秒"
+                    await send_msg_safe(session, from_id, context_token,
+                                        f"当前连接剩余时间：{_ts}",
+                                        bot_token_ref, bot_base_url_ref)
                     continue
 
                 # getconfig 获取 typing_ticket（每个用户缓存一次）

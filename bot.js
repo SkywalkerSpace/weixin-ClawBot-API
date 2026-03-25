@@ -83,12 +83,15 @@ async function loadOrCreateConfig() {
 }
 // ==============================
 
+const COMMANDS_MSG = "可用指令：\n/time - 查询当前连接剩余时间";
+
 // 共享状态（模块级）
 let botToken;
 let botBaseUrl = BASE_URL;
 let getUpdatesBuf = "";
 const typingTicketCache = {};
 let lastContact = { fromId: null, contextToken: null };
+const welcomedUsers = new Set();
 let warningActive = false;
 let reconnectInProgress = false;
 let reconnectResolve = null;  // Y 回复时调用：reconnectResolve?.()
@@ -292,6 +295,24 @@ async function messageLoop() {
         continue;
       }
 
+      // 首次交互：发送指令列表
+      if (!welcomedUsers.has(fromId)) {
+        welcomedUsers.add(fromId);
+        await sendMsgSafe(fromId, contextToken, COMMANDS_MSG);
+        continue;
+      }
+
+      // /time 指令
+      if (text?.trim() === "/time") {
+        const rem = Math.max(0, (loginTime + RECONNECT_CONFIG.session_duration * 1000 - Date.now()) / 1000);
+        const h = Math.floor(rem / 3600);
+        const m = Math.floor((rem % 3600) / 60);
+        const s = Math.floor(rem % 60);
+        const ts = h > 0 ? `${h} 小时 ${m} 分钟` : `${m} 分钟 ${s} 秒`;
+        await sendMsgSafe(fromId, contextToken, `当前连接剩余时间：${ts}`);
+        continue;
+      }
+
       // getconfig 获取 typing_ticket（每个用户首次调用，缓存复用）
       if (!typingTicketCache[fromId]) {
         const cfg = await apiPost("ilink/bot/getconfig", {
@@ -383,6 +404,9 @@ while (true) {
     botToken = status.bot_token;
     botBaseUrl = status.baseurl ?? BASE_URL;
     console.log("登录成功！");
+    console.log("=".repeat(40));
+    console.log(COMMANDS_MSG);
+    console.log("=".repeat(40));
     break;
   }
   await sleep(1000);
