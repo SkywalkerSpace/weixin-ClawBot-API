@@ -3,6 +3,7 @@ import base64
 import random
 import re
 import aiohttp
+import time
 from concurrent.futures import ThreadPoolExecutor
 from dusapi import DusAPI, DusConfig
 
@@ -18,6 +19,19 @@ config = DusConfig(
 ai = DusAPI(config)
 executor = ThreadPoolExecutor(max_workers=4)
 # ==========================
+
+# ========== 自动重连配置（可调参数） ==========
+# 测试时将数值改小，例如：
+#   "session_duration": 300, "warning_before": 60, "reminder_interval": 30,
+#   "force_before": 60, "qrcode_scan_timeout": 120
+RECONNECT_CONFIG = {
+    "session_duration":    24 * 3600,  # 会话总时长（秒）
+    "warning_before":       2 * 3600,  # 提前多久发出警告（秒）
+    "reminder_interval":      30 * 60, # 用户回 N 后多久再问（秒）
+    "force_before":           30 * 60, # 最后多久强制重连（秒）
+    "qrcode_scan_timeout":       600,  # 等待用户扫码最长时间（秒）
+}
+# =============================================
 
 BASE_URL = "https://ilinkai.weixin.qq.com"
 
