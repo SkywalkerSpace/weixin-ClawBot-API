@@ -487,6 +487,15 @@ async def main():
                     )
 
 
+print(
+    "\n"
+    "╔══════════════════════════════════════════════════════════╗\n"
+    "║          微信 ClawBot  ·  WeChat iLink Bot               ║\n"
+    "║  Copyright (c) 2026 SiverKing. All rights reserved.     ║\n"
+    "║  GitHub : https://github.com/SiverKing/weixin-ClawBot-API║\n"
+    "╚══════════════════════════════════════════════════════════╝"
+)
+
 _raw_cfg = load_or_create_config()
 ai = DusAPI(DusConfig(
     api_key=_raw_cfg["api_key"],

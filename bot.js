@@ -366,6 +366,13 @@ async function messageLoop() {
 
 // ── 启动流程 ──
 
+console.log(`
+╔══════════════════════════════════════════════════════════╗
+║          微信 ClawBot  ·  WeChat iLink Bot               ║
+║  Copyright (c) 2026 SiverKing. All rights reserved.     ║
+║  GitHub : https://github.com/SiverKing/weixin-ClawBot-API║
+╚══════════════════════════════════════════════════════════╝`);
+
 // 0. 加载配置
 const botConfig = await loadOrCreateConfig();
 
