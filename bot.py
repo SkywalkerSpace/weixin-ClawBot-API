@@ -60,6 +60,35 @@ async def api_post(session, path, body, token=None, base_url=None):
             return {}
 
 
+async def send_msg_safe(session, to_id, context_token, text, bot_token_ref, bot_base_url_ref):
+    """发送微信消息，失败时降级为控制台打印，不抛异常。"""
+    if not to_id or not context_token:
+        print(f"[重连通知] {text}")
+        return
+    try:
+        client_id = f"openclaw-weixin-{random.randint(0, 0xFFFFFFFF):08x}"
+        await api_post(
+            session,
+            "ilink/bot/sendmessage",
+            {
+                "msg": {
+                    "from_user_id": "",
+                    "to_user_id": to_id,
+                    "client_id": client_id,
+                    "message_type": 2,
+                    "message_state": 2,
+                    "context_token": context_token,
+                    "item_list": [{"type": 1, "text_item": {"text": text}}],
+                },
+                "base_info": {"channel_version": "1.0.2"},
+            },
+            bot_token_ref[0],
+            bot_base_url_ref[0] or None,
+        )
+    except Exception as e:
+        print(f"[重连通知] 发送失败({e})，降级打印: {text}")
+
+
 async def main():
     async with aiohttp.ClientSession() as session:
         # 1. 获取二维码
