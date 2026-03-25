@@ -164,6 +164,72 @@ async def do_reconnect(session, bot_token_ref, bot_base_url_ref, last_contact,
     login_time_ref[0] = time.time()
 
 
+async def reconnect_timer_task(session, bot_token_ref, bot_base_url_ref, last_contact,
+                                typing_ticket_cache, reconnect_asked, warning_active,
+                                reconnect_in_progress, login_time_ref, cfg):
+    """独立定时器任务，与主消息循环并发运行。"""
+    while True:
+        # 等待到发警告的时间点
+        elapsed = time.time() - login_time_ref[0]
+        first_wait = max(0, cfg["session_duration"] - cfg["warning_before"] - elapsed)
+        await asyncio.sleep(first_wait)
+
+        # 检查剩余时间（可能因测试值设置而已超过 force_before）
+        remaining = login_time_ref[0] + cfg["session_duration"] - time.time()
+        if remaining <= cfg["force_before"]:
+            force_msg = "[自动] 连接即将到期，开始强制重新连接..."
+            print(force_msg)
+            await send_msg_safe(session, last_contact["from_id"], last_contact["context_token"],
+                                force_msg, bot_token_ref, bot_base_url_ref)
+            await do_reconnect(session, bot_token_ref, bot_base_url_ref, last_contact,
+                               typing_ticket_cache, reconnect_asked, warning_active,
+                               reconnect_in_progress, login_time_ref, cfg)
+            continue
+
+        # 发初次警告
+        remaining_h = remaining / 3600
+        warn_msg = f"[提醒] 连接还剩约 {remaining_h:.1f} 小时到期，是否现在重新连接？回复 Y 立即重连，N 稍后提醒"
+        print(warn_msg)
+        await send_msg_safe(session, last_contact["from_id"], last_contact["context_token"],
+                            warn_msg, bot_token_ref, bot_base_url_ref)
+        warning_active[0] = True
+
+        # 询问循环
+        while True:
+            remaining = login_time_ref[0] + cfg["session_duration"] - time.time()
+            if remaining <= cfg["force_before"]:
+                force_msg = "[自动] 连接即将到期，开始强制重新连接..."
+                print(force_msg)
+                await send_msg_safe(session, last_contact["from_id"], last_contact["context_token"],
+                                    force_msg, bot_token_ref, bot_base_url_ref)
+                await do_reconnect(session, bot_token_ref, bot_base_url_ref, last_contact,
+                                   typing_ticket_cache, reconnect_asked, warning_active,
+                                   reconnect_in_progress, login_time_ref, cfg)
+                break
+
+            wait_secs = max(0.0, min(float(cfg["reminder_interval"]),
+                                     remaining - cfg["force_before"]))
+            try:
+                await asyncio.wait_for(reconnect_asked.wait(), timeout=wait_secs)
+                # 用户回 Y，执行重连
+                await do_reconnect(session, bot_token_ref, bot_base_url_ref, last_contact,
+                                   typing_ticket_cache, reconnect_asked, warning_active,
+                                   reconnect_in_progress, login_time_ref, cfg)
+                break
+            except asyncio.TimeoutError:
+                # 定时到，重新评估
+                remaining = login_time_ref[0] + cfg["session_duration"] - time.time()
+                if remaining <= cfg["force_before"]:
+                    continue  # 下一轮循环走强制重连分支
+                remaining_m = remaining / 60
+                remind_msg = (f"[提醒] 连接还剩约 {remaining_m:.0f} 分钟，"
+                              f"是否现在重新连接？回复 Y 立即重连，N 继续等待")
+                print(remind_msg)
+                # 用最新的 last_contact（可能已更新）
+                await send_msg_safe(session, last_contact["from_id"], last_contact["context_token"],
+                                    remind_msg, bot_token_ref, bot_base_url_ref)
+
+
 async def main():
     async with aiohttp.ClientSession() as session:
         # 1. 获取二维码
