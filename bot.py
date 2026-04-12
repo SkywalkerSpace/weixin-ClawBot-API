@@ -28,6 +28,24 @@ RECONNECT_CONFIG = {
 # ========== 配置文件 ==========
 CONFIG_FILE = "config.json"
 _DEFAULT_PROMPT = "你是一个有帮助的AI助手，请用中文简洁地回复。字数尽量少一些"
+HISTORY_LIMIT = 5
+
+
+def get_history(text, history_list):
+    """获取当前的对话历史，适合用于生成回答时的上下文。"""
+    return "\n".join([f"{speaker} {text}" for speaker, text in history_list]) + \
+        '\nUser: ' + text
+
+
+def put_history(text, reply, history_list):
+    """添加当前用户输入和AI输出。"""
+    history_list.append(('User:', text))
+    history_list.append(('AI:', reply))
+
+    # 如果历史记录超过设定的轮数限制，丢弃最早的对话
+    if len(history_list) > HISTORY_LIMIT * 2:  # 因为每轮包含用户和AI两次记录
+        history_list = history_list[2:]  # 丢弃最早的两条记录
+    return history_list
 
 
 def mask_key(key: str) -> str:
@@ -94,10 +112,13 @@ def load_or_create_config() -> dict:
             print(f"  提示词   : {prompt_preview}{'...' if len(cfg.get('prompt','')) > 50 else ''}")
             print(dash)
 
-            choice = input("\n使用此配置继续？(直接回车或输入 Y 继续 / 输入 N 重新配置): ").strip().upper()
-            if choice == "N":
-                os.remove(CONFIG_FILE)
-                continue  # 回到循环顶部重新创建
+            try:
+                choice = input("\n使用此配置继续？(直接回车或输入 Y 继续 / 输入 N 重新配置): ").strip().upper()
+                if choice == "N":
+                    os.remove(CONFIG_FILE)
+                    continue  # 回到循环顶部重新创建
+            except EOFError:
+                pass
             return cfg
 # ==============================
 
@@ -252,6 +273,8 @@ async def reconnect_timer_task(session, bot_token_ref, bot_base_url_ref, last_co
 
         # 检查剩余时间（可能因测试值设置而已超过 force_before）
         remaining = login_time_ref[0] + cfg["session_duration"] - time.time()
+        if remaining > cfg["warning_before"]:
+            continue
         if remaining <= cfg["force_before"]:
             force_msg = "[自动] 连接即将到期，开始强制重新连接..."
             print(force_msg)
@@ -380,6 +403,7 @@ async def main():
 
         # 5. 长轮询收消息
         get_updates_buf = ""
+        history_list = []
         print("开始监听消息...")
         while True:
             result = await api_post(
@@ -494,7 +518,10 @@ async def main():
                 # 调用 AI
                 loop = asyncio.get_event_loop()
                 # 或者替换为你自已要用的接口
-                reply = await loop.run_in_executor(executor, ai.chat, text)
+                # 发送最近的几轮对话历史
+                history_text = get_history(text, history_list)
+                reply = await loop.run_in_executor(executor, ai.chat, history_text)
+                history_list = put_history(text, reply, history_list)
 
                 # sendmessage（补全 SDK 所需字段）
                 client_id = f"openclaw-weixin-{random.randint(0, 0xFFFFFFFF):08x}"
