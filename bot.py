@@ -128,6 +128,7 @@ COMMANDS_MSG = (
     "可用指令：\n"
     "/help  /指令   - 查看全部指令列表\n"
     "/time          - 查询当前连接剩余时间\n"
+    "/new           - 开始新对话\n"
     "/重新连接       - 立即触发重新连接（需确认）\n"
     "\n非指令输入即为 AI 对话"
 )
@@ -476,6 +477,14 @@ async def main():
                     _ts = f"{_h} 小时 {_m} 分钟" if _h > 0 else f"{_m} 分钟 {_s} 秒"
                     await send_msg_safe(session, from_id, context_token,
                                         f"当前连接剩余时间：{_ts}",
+                                        bot_token_ref, bot_base_url_ref)
+                    continue
+
+                # /new 指令
+                if text.strip() == "/new":
+                    history_list = []
+                    await send_msg_safe(session, from_id, context_token,
+                                        f"开始新对话",
                                         bot_token_ref, bot_base_url_ref)
                     continue
 
