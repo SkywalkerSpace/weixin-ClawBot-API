@@ -395,12 +395,12 @@ async def main():
         login_time_ref = [time.time()]
         manual_reconnect_pending = {}  # {from_id: True} 等待用户确认手动重连
 
-        # 4. 启动定时器任务（与消息循环并发）
-        asyncio.create_task(reconnect_timer_task(
-            session, bot_token_ref, bot_base_url_ref, last_contact,
-            typing_ticket_cache, reconnect_asked, warning_active,
-            reconnect_in_progress, login_time_ref, RECONNECT_CONFIG,
-        ))
+        # # 4. 启动定时器任务（与消息循环并发）
+        # asyncio.create_task(reconnect_timer_task(
+        #     session, bot_token_ref, bot_base_url_ref, last_contact,
+        #     typing_ticket_cache, reconnect_asked, warning_active,
+        #     reconnect_in_progress, login_time_ref, RECONNECT_CONFIG,
+        # ))
 
         # 5. 长轮询收消息
         get_updates_buf = ""
