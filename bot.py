@@ -28,7 +28,7 @@ RECONNECT_CONFIG = {
 # ========== 配置文件 ==========
 CONFIG_FILE = "config.json"
 _DEFAULT_PROMPT = "你是一个有帮助的AI助手，请用中文简洁地回复。字数尽量少一些"
-HISTORY_LIMIT = 5
+HISTORY_LIMIT = 10
 
 
 def get_history(text, history_list):
@@ -405,15 +405,27 @@ async def main():
         # 5. 长轮询收消息
         get_updates_buf = ""
         history_list = []
+        timeout_retry = 0
         print("开始监听消息...")
         while True:
-            result = await api_post(
-                session,
-                "ilink/bot/getupdates",
-                {"get_updates_buf": get_updates_buf, "base_info": {"channel_version": "1.0.2"}},
-                bot_token_ref[0],
-                bot_base_url_ref[0] or None,
-            )
+            try:
+                result = await api_post(
+                    session,
+                    "ilink/bot/getupdates",
+                    {"get_updates_buf": get_updates_buf, "base_info": {"channel_version": "1.0.2"}},
+                    bot_token_ref[0],
+                    bot_base_url_ref[0] or None,
+                )
+                timeout_retry = 0
+            except asyncio.TimeoutError:
+                timeout_retry += 1
+                if timeout_retry > 5:
+                    print("连续超时多次，退出程序")
+                    raise
+                print(f"超时{timeout_retry}次，30秒后重试...")
+                await asyncio.sleep(30)
+                continue
+
             get_updates_buf = result.get("get_updates_buf") or get_updates_buf
 
             for msg in result.get("msgs") or []:
