@@ -417,13 +417,14 @@ async def main():
                     bot_base_url_ref[0] or None,
                 )
                 timeout_retry = 0
-            except asyncio.TimeoutError:
+            except Exception as e:
+                print('api_post error',e)
                 timeout_retry += 1
-                if timeout_retry > 5:
+                if timeout_retry > 30:
                     print("连续超时多次，退出程序")
                     raise
-                print(f"超时{timeout_retry}次，30秒后重试...")
-                await asyncio.sleep(30)
+                print(f"超时{timeout_retry}次，60秒后重试...")
+                await asyncio.sleep(60)
                 continue
 
             get_updates_buf = result.get("get_updates_buf") or get_updates_buf
